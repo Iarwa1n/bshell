@@ -1,4 +1,4 @@
-var bs_gui = function(shell)
+var b_gui = function(shell)
 {
 	this.shell = shell;
 	this.show = function()
@@ -7,12 +7,13 @@ var bs_gui = function(shell)
 	}
 }
 
-var bs_shell = function()
+var b_shell = function(config)
 {
 	var v = new Object(); // all variables
 	var h = new Array(); //history
 	var c = new Object(); //all known commands
 
+	var config = config || [];
 	c.test = function(cmd, input, params, shell)
 	{
 		console.log("i am " + cmd);
@@ -40,30 +41,19 @@ var bs_shell = function()
 
 	c.links = function(cmd, input, params, shell)
 	{
-		renderLinks = function() {
-			var links = "";
-			for (var i=0; i < top.frames[1].document.links.length; i++) {
-				var link =  top.frames[1].document.links[i];
-				links += "HREF: <a target='_blank' href='" + link.href + "'>" + link.href + "</a> -- Inner: " + link.innerHTML + "<br />";
-			}
-			var newDoc = top.frames[1].document.open("text/html", "replace");
-			newDoc.write(links);
-			newDoc.close();
+		function createDocument(html, title) {
+		  var doc = document.implementation.createHTMLDocument(title);
+		  doc.documentElement.innerHTML = html;
+		  return doc;
 		}
 
 		if(input.length == 0) {
 			renderLinks();
 		} else {
 			var _html = shell.exec(":bg load " + input[0]);
-			var newDoc = top.frames[1].document.open("text/html", "replace");
-			newDoc.write(_html);
-			newDoc.close();
-			var readyStateCheckInterval = setInterval(function() {
-			    if (top.frames[1].document.readyState === "complete") {
-					renderLinks();
-			        clearInterval(readyStateCheckInterval);
-			    }
-			}, 10);		
+			var doc = createDocument(_html, "test");
+			console.log(doc.links);
+			return doc.links;
 		}
 	}
 
@@ -77,6 +67,12 @@ var bs_shell = function()
 		newDoc.close();
 	}
 
+	c['!'] = function(cmd, input, params, shell)
+	{
+		var cmd = shell.exec(":bg history " + input[0]);
+		return shell.exec(cmd);			
+	}
+	
 	/**
 	* adds a command to the shell
 	*/
@@ -158,8 +154,9 @@ var bs_shell = function()
 	this.parse = function(cl)
 	{
 		cl = cl.replace(/^\s+|\s+$/g,"") //trim whitespace from beginning and end
-		var foldQuotes = this.foldQuoted(cl,cl.split(''), 0, 0, 0, 10, new Object());
-		var tokens = foldQuotes[0].split(/\s+/);
+		var foldQuotes = this.foldQuoted(cl,cl.split(''), 0, 0, 0, 10, new Object()); //fold quotes to vars
+		var pipe = foldQuotes[0].split('|'); //split pipe
+		var tokens = pipe.shift().replace(/^\s+|\s+$/g,"").split(/\s+/); //tokenize first in pipe, pipe the rest
 		var unfoldVars = function(key)
 		{
 			//return key;
@@ -189,7 +186,7 @@ var bs_shell = function()
 				input.push(unfoldVars(tokens[i]));
 			}
 		}
-		return [command, input, params];	
+		return [command, input, params, pipe];	
 	}
 	
 	/**
@@ -197,6 +194,7 @@ var bs_shell = function()
 	**/
 	this.exec = function(cl)
 	{
+		var orig_cl = cl;
 		cl = cl.replace(/^\s+|\s+$/g,"") //trim whitespace from beginning and end
 		var languageSpace = cl.match(/^:.+?\s+/)
 		if(languageSpace != null) {
@@ -206,27 +204,40 @@ var bs_shell = function()
 		}
 		cl = cl.slice(languageSpace.length);	
 		languageSpace = languageSpace.replace(/\s+$/g,"");
-		
+		var result = undefined;
 		switch (languageSpace) {
 			case ":js": 
-				return eval(cl);
+				result = eval(cl);
 				break;
 			case ":bg":
 				var parser = this.parse(cl);
-				return this.sendPost(parser[0], parser[1], parser[2]);
+				console.log(parser);
+				var result = this.getFromBackend(parser[0], parser[1], parser[2]);
+				break;
 			default:
 				var parser = this.parse(cl);
 				console.log(parser);
 				if (c[parser[0]]) {
-					return c[parser[0]](parser[0], parser[1], parser[2], this);			
+					var result = c[parser[0]](parser[0], parser[1], parser[2], this);			
+					if (parser[3].length) {
+						this.addVariable('PIPE', result);
+						result = this.exec(parser[3].shift() + ' $PIPE' + parser[3].join());
+					}
+					break;
 				}
 				break;
 		}
+		if (orig_cl.indexOf("save_history") < 0) { // dont save the history command in the history
+			var his_command = ":bg save_history \"" + orig_cl + "\"";
+			this.exec(his_command);
+		}
+
+		return result;
 	}
 
-	this.sendPost = function(cmd, input, params)
+	this.getFromBackend = function(cmd, input, params)
 	{
-		var url = "http://host.local/bsshell/backend.php";
+		var url = config.backend_url || "http://host.local/bshell/backend.php";
 
 		var postParams = "cmd=" + cmd + "&input=" + input.join(" ");
 		for (var param in params) {
@@ -235,8 +246,6 @@ var bs_shell = function()
 		console.log(postParams);
 		http = this.httpObj();
 		http.open("POST", url, false );
-
-		//Send the proper header information along with the request
 		http.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
 		//http.setRequestHeader("Content-length", params.length);
 		//http.setRequestHeader("Connection", "close");
@@ -270,5 +279,5 @@ var bs_shell = function()
 	}
 }
 
-s = new bs_shell();
+s = new b_shell();
 //alert("shell loaded");
