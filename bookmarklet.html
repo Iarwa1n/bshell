@@ -1,0 +1,46 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+	"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en" debug="true">
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+
+	<title>bsShell</title>
+
+	<style type="text/css" media="screen">
+
+		body {
+			padding: 0;
+			margin: 0;
+			font: 18px/1.6 Arial;
+			color: #000;
+		}
+
+		#test {
+			padding: 30px;
+		}
+
+		h1 {
+			color: #000;
+		}
+
+		h1, p {
+			margin: 0;
+			padding: 10px;
+		}
+
+	</style>
+
+</head>
+
+<body>
+
+	<div id="test">
+		<h1>BS Shell</h1>
+
+<p><a href="javascript:(function(){if (!window.debug || !debug.path){ top.bsBookmarklet = true; window.debug = {path: 'http://host.local/bsshell/'}; var script = document.createElement('script'); script.id = 'shell-bookmarklet'; script.src = debug.path + 'shell.js'; document.getElementsByTagName('head')[0].appendChild(script);if (!window.debug) { return; } debug.firebug = true;}})()">bsshell localhost</a></p>
+	</div>
+
+
+</body>
+</html>
